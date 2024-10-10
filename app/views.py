@@ -16,6 +16,10 @@ import yfinance as yf
 import datetime as dt
 import qrcode
 
+import requests
+import finnhub
+
+
 from .models import Project
 
 from sklearn.linear_model import LinearRegression
@@ -191,7 +195,7 @@ def predict(request, ticker_value, number_of_days):
     forecast_out = int(number_of_days)
     df_ml['Prediction'] = df_ml[['Adj Close']].shift(-forecast_out)
     # Splitting data for Test and Train
-    X = np.array(df_ml.drop(['Prediction'],1))
+    X = np.array(df_ml.drop(columns=['Prediction']))
     X = preprocessing.scale(X)
     X_forecast = X[-forecast_out:]
     X = X[:-forecast_out]
@@ -264,3 +268,70 @@ def predict(request, ticker_value, number_of_days):
                                                     'Sector':Sector,
                                                     'Industry':Industry,
                                                     })
+
+def news(request):
+    api_key = 'c85osUmxiirrXXVJnqIZhxO78iRlgSYcjW532aUv'
+    
+    url = f'https://api.marketaux.com/v1/news/all?countries=in&filter_entities=true&limit=6&api_token={api_key}'
+    
+    response = requests.get(url)
+    news_data = response.json()
+    data = news_data.get('data',[])
+    
+    return render(request, 'news.html', {"articles": data})
+
+finnhub_client = finnhub.Client(api_key="cmi3hd9r01qic7mij8jgcmi3hd9r01qic7mij8k0")
+def finhub_news():
+    """
+    Fetch general market news from Finnhub API and return the list of articles.
+    Replace default image with a custom image if the provided one is the default.
+    """
+    market_news = finnhub_client.general_news('general', min_id=5)
+
+    # Define the default image URL from the API and your custom replacement image
+    default_image = "https://static2.finnhub.io/file/publicdatany/finnhubimage/market_watch_logo.png"
+    custom_image = "/static/image/news.png"  # Update with the path to your image
+
+    # Iterate over the articles and replace the default image if found
+    for article in market_news:
+        if article['image'] == default_image:
+            article['image'] = custom_image
+
+    return market_news
+
+def all_news(request):
+    """
+    Render the 'allNews.html' template with articles fetched from the Finnhub API.
+    """
+    articles = finhub_news()
+    return render(request, 'allNews.html', {"articles": articles})
+
+
+
+def education(request):
+    return render(request, 'learn.html');
+
+def filter_responses(responses):
+    """
+    Filters out responses where the title, image description, or URL is missing or marked as 'removed'.
+    
+    Args:
+    responses (list of dict): List of dictionaries, each representing an API response.
+    
+    Returns:
+    list of dict: Filtered list of responses.
+    """
+    
+    filtered_responses = []  # Create a list to store valid responses
+    
+    for response in responses:
+        # Check if any of the fields are None or contain 'removed'
+        if (response.get('title') and response['title'] != 'removed' and
+            response.get('image_description') and response['image_description'] != 'removed' and
+            response.get('url') and response['url'] != 'removed'):
+            filtered_responses.append(response)  # Add valid response to the list
+    
+    return filtered_responses
+
+
+

@@ -24,4 +24,7 @@ urlpatterns = [
     path('search/', search),
     path('predict/<str:ticker_value>/<str:number_of_days>/', predict),
     path('ticker/', ticker),
+    path('news/',news),
+    path('learn/', education),
+    path('news/all',all_news)
 ]
