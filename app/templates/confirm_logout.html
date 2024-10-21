@@ -1,0 +1,18 @@
+<!-- templates/confirm_logout.html -->
+{% extends 'base.html' %}
+
+{% block title %}Confirm Logout{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h3 class="card-title text-center">Confirm Logout</h3>
+        <p class="text-center">Are you sure you want to log out?</p>
+        <form method="POST" class="text-center">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Yes, Log Out</button>
+            <a href="{% url 'index' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

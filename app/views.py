@@ -1,7 +1,8 @@
 from urllib import request
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.template import RequestContext
+from django.contrib.auth.decorators import login_required
 
 from plotly.offline import plot
 import plotly.graph_objects as go
@@ -25,8 +26,44 @@ from .models import Project
 from sklearn.linear_model import LinearRegression
 from sklearn import preprocessing, model_selection, svm
 
+from django import forms
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
+from django.contrib.auth import logout
+from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm
 
 
+# AUTENTICATION PART
+# Create a simple user registration form
+class UserRegistrationForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput)
+    confirm_password = forms.CharField(widget=forms.PasswordInput, label='Confirm Password')
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password']
+
+def signup_view(request):
+    if request.method == 'POST':
+        form = UserRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data['password'])  # Hash the password
+            user.save()
+            login(request, user)  # Log in the user after signup
+            messages.success(request, 'Registration successful!')
+            return redirect('index')  # Redirect to a home page or any page you want
+    else:
+        form = UserRegistrationForm()
+    return render(request, 'signup.html', {'form': form})
+
+# CONFIRM LOGOUT VIEW
+def confirm_logout_view(request):
+    if request.method == 'POST':
+        logout(request)
+        return redirect('index')  # Redirect to home or your desired page
+    return render(request, 'confirm_logout.html')  # Create this template
 
 # The Home page when Server loads up
 def index(request):
@@ -109,9 +146,11 @@ def index(request):
         'recent_stocks': recent_stocks
     })
 
+@login_required
 def search(request):
     return render(request, 'search.html', {})
 
+@login_required
 def ticker(request):
     # ================================================= Load Ticker Table ================================================
     ticker_df = pd.read_csv('app/Data/new_tickers.csv') 
@@ -126,6 +165,7 @@ def ticker(request):
 
 
 # The Predict Function to implement Machine Learning as well as Plotting
+@login_required
 def predict(request, ticker_value, number_of_days):
     try:
         # ticker_value = request.POST.get('ticker')
@@ -269,10 +309,11 @@ def predict(request, ticker_value, number_of_days):
                                                     'Industry':Industry,
                                                     })
 
+@login_required
 def news(request):
     api_key = 'c85osUmxiirrXXVJnqIZhxO78iRlgSYcjW532aUv'
     
-    url = f'https://api.marketaux.com/v1/news/all?countries=in&filter_entities=true&limit=6&api_token={api_key}'
+    url = f'https://api.marketaux.com/v1/news/all?symbols=TSLA,MSFT&filter_entities=true&limit=3&api_token={api_key}'
     
     response = requests.get(url)
     news_data = response.json()
@@ -286,7 +327,7 @@ def finhub_news():
     Fetch general market news from Finnhub API and return the list of articles.
     Replace default image with a custom image if the provided one is the default.
     """
-    market_news = finnhub_client.general_news('general', min_id=5)
+    market_news = finnhub_client.general_news('general', min_id=0)
 
     # Define the default image URL from the API and your custom replacement image
     default_image = "https://static2.finnhub.io/file/publicdatany/finnhubimage/market_watch_logo.png"
@@ -299,6 +340,7 @@ def finhub_news():
 
     return market_news
 
+@login_required
 def all_news(request):
     """
     Render the 'allNews.html' template with articles fetched from the Finnhub API.
@@ -307,7 +349,7 @@ def all_news(request):
     return render(request, 'allNews.html', {"articles": articles})
 
 
-
+@login_required
 def education(request):
     return render(request, 'learn.html');
 
