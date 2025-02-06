@@ -34,4 +34,7 @@ urlpatterns = [
     path('watchlist/', watchlist, name='watchlist'),
     path('watchlist/add/', add_to_watchlist, name='add_to_watchlist'),
     path('watchlist/remove/<str:ticker>/', remove_from_watchlist, name='remove_from_watchlist'),
+    path('forums/', forum_list, name='forum_list'),  
+    path('forums/<int:forum_id>/', forum_detail, name='forum_detail'),  
+    path('message/delete/<int:message_id>/', delete_message, name='delete_message'),
 ]

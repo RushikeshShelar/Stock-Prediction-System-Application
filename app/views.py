@@ -1,5 +1,5 @@
 from urllib import request
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
@@ -33,6 +33,42 @@ from django.contrib.auth.forms import UserCreationForm
 from .models import Watchlist
 from .utils import get_stock_info
 
+# FOrum
+from .models import Forum, Message
+
+# 1️⃣ List all available forums
+def forum_list(request):
+    forums = Forum.objects.all()
+    return render(request, 'forum_list.html', {'forums': forums})
+
+# 2️⃣ View messages in a forum and post a message
+def forum_detail(request, forum_id):
+    forum = get_object_or_404(Forum, id=forum_id)
+    messages = Message.objects.filter(forum=forum, parent=None).order_by('-created_at')  # Only main messages
+
+    if request.method == "POST":
+        user = request.POST.get('user')
+        content = request.POST.get('content')
+        parent_id = request.POST.get('parent_id')
+
+        if content:
+            parent = Message.objects.get(id=parent_id) if parent_id else None  # If it's a reply
+            Message.objects.create(forum=forum, user=user, content=content, parent=parent)
+
+    return render(request, 'forum_detail.html', {'forum': forum, 'messages': messages})
+
+# 3️⃣ Delete a message (Only by the original user)
+def delete_message(request, message_id):
+    message = get_object_or_404(Message, id=message_id)
+
+    if request.method == "POST":
+        message.delete()
+        return redirect('forum_detail', forum_id=message.forum.id) # type: ignore
+
+    return render(request, 'delete_message.html', {'message': message})
+
+
+# Watchlist
 def watchlist(request):
     stocks = Watchlist.objects.all()
     stock_data = []
