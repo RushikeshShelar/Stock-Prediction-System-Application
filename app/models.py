@@ -18,3 +18,9 @@ class Project(models.Model):
         if self.week_number == "":
             self.week_number = self.start_date.isocalendar()[1]
         super().save(*args, **kwargs)
+        
+class Watchlist(models.Model):
+    stock_ticker = models.CharField(max_length=10, unique=True)
+
+    def __str__(self):
+        return self.stock_ticker

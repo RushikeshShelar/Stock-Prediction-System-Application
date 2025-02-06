@@ -20,9 +20,6 @@ import qrcode
 import requests
 import finnhub
 
-
-from .models import Project
-
 from sklearn.linear_model import LinearRegression
 from sklearn import preprocessing, model_selection, svm
 
@@ -33,6 +30,34 @@ from django.contrib.auth import logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
+from .models import Watchlist
+from .utils import get_stock_info
+
+def watchlist(request):
+    stocks = Watchlist.objects.all()
+    stock_data = []
+
+    for stock in stocks:
+        info = get_stock_info(stock.stock_ticker)
+        if info:
+            stock_data.append({
+                "ticker": stock.stock_ticker,
+                "current_price": info["current_price"],
+                "percent_change": info["percent_change"],
+            })
+
+    return render(request, 'watchlist.html', {"stocks": stock_data})
+
+def add_to_watchlist(request):
+    if request.method == "POST":
+        ticker = request.POST.get('ticker').upper()
+        if ticker and not Watchlist.objects.filter(stock_ticker=ticker).exists():
+            Watchlist.objects.create(stock_ticker=ticker)
+    return redirect('watchlist')
+
+def remove_from_watchlist(request, ticker):
+    Watchlist.objects.filter(stock_ticker=ticker).delete()
+    return redirect('watchlist')
 
 # AUTENTICATION PART
 # Create a simple user registration form
@@ -152,15 +177,23 @@ def search(request):
 
 @login_required
 def ticker(request):
-    # ================================================= Load Ticker Table ================================================
+    # Load the Ticker CSV file
     ticker_df = pd.read_csv('app/Data/new_tickers.csv') 
-    json_ticker = ticker_df.reset_index().to_json(orient ='records')
-    ticker_list = []
+
+    # Get search query from request
+    query = request.GET.get("query", "").strip().lower()
+
+    # Convert DataFrame to JSON
+    json_ticker = ticker_df.reset_index().to_json(orient='records')
     ticker_list = json.loads(json_ticker)
 
+    # Apply search filter
+    if query:
+        ticker_list = [ticker for ticker in ticker_list if query in ticker['Name'].lower()]
 
     return render(request, 'ticker.html', {
-        'ticker_list': ticker_list
+        'ticker_list': ticker_list,
+        'query': query
     })
 
 
@@ -237,8 +270,8 @@ def predict(request, ticker_value, number_of_days):
     # Splitting data for Test and Train
     X = np.array(df_ml.drop(columns=['Prediction']))
     X = preprocessing.scale(X)
-    X_forecast = X[-forecast_out:]
-    X = X[:-forecast_out]
+    X_forecast = X[-forecast_out:] # type: ignore
+    X = X[:-forecast_out] # type: ignore
     y = np.array(df_ml['Prediction'])
     y = y[:-forecast_out]
     X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size = 0.2)

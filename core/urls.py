@@ -27,8 +27,11 @@ urlpatterns = [
     path('', index, name="index"),
     path('search/', search),
     path('predict/<str:ticker_value>/<str:number_of_days>/', predict),
-    path('ticker/', ticker),
+    path('ticker/', ticker, name='ticker'),
     path('news/',news),
     path('learn/', education),
-    path('news/all',all_news)
+    path('news/all',all_news),
+    path('watchlist/', watchlist, name='watchlist'),
+    path('watchlist/add/', add_to_watchlist, name='add_to_watchlist'),
+    path('watchlist/remove/<str:ticker>/', remove_from_watchlist, name='remove_from_watchlist'),
 ]
