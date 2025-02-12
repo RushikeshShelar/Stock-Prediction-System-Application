@@ -37,4 +37,6 @@ urlpatterns = [
     path('forums/', forum_list, name='forum_list'),  
     path('forums/<int:forum_id>/', forum_detail, name='forum_detail'),  
     path('message/delete/<int:message_id>/', delete_message, name='delete_message'),
+    path("chatbot/", stock_chatbot, name="stock_chatbot"),
+    path('chat/', chat, name='chat'),
 ]
