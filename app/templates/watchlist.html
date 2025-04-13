@@ -187,7 +187,7 @@
                                 <thead>
                                     <tr>
                                         <th>Stock</th>
-                                        <th>Current Price (₹)</th>
+                                        <th>Current Price ($)</th>
                                         <th>Change (%)</th>
                                         <th>Remove</th>
                                     </tr>
@@ -196,7 +196,7 @@
                                     {% for stock in stocks %}
                                     <tr>
                                         <td class="fw-bold">{{ stock.ticker }}</td>
-                                        <td>₹{{ stock.current_price }}</td>
+                                        <td>${{ stock.current_price }}</td>
                                         <td>
                                             {% if stock.percent_change >= 0 %}
                                             <span class="text-success fw-bold">🔼 {{ stock.percent_change }}%</span>

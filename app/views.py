@@ -192,43 +192,32 @@ def index(request):
     # ================================================= Left Card Plot =========================================================
     # Here we use yf.download function
     data = yf.download(
-        
         # passes the ticker
         tickers=['AAPL', 'AMZN', 'QCOM', 'META', 'NVDA', 'JPM'],
         
-        group_by = 'ticker',
-        
-        threads=True, # Set thread value to true
-        
         # used for access data[ticker]
         period='1mo', 
-        interval='1d'
-    
+        interval='1d',
+        auto_adjust=False
     )
 
-    data.reset_index(level=0, inplace=True)
-
-
+    # No need for reset_index here, as we'll use the index directly
 
     fig_left = go.Figure()
-    fig_left.add_trace(
-                go.Scatter(x=data['Date'], y=data['AAPL']['Adj Close'], name="AAPL")
-            )
-    fig_left.add_trace(
-                go.Scatter(x=data['Date'], y=data['AMZN']['Adj Close'], name="AMZN")
-            )
-    fig_left.add_trace(
-                go.Scatter(x=data['Date'], y=data['QCOM']['Adj Close'], name="QCOM")
-            )
-    fig_left.add_trace(
-                go.Scatter(x=data['Date'], y=data['META']['Adj Close'], name="META")
-            )
-    fig_left.add_trace(
-                go.Scatter(x=data['Date'], y=data['NVDA']['Adj Close'], name="NVDA")
-            )
-    fig_left.add_trace(
-                go.Scatter(x=data['Date'], y=data['JPM']['Adj Close'], name="JPM")
-            )
+    
+    if data is None or data.empty:
+        return render(request, 'index.html', {
+            'plot_div_left': None,
+            'recent_stocks': []
+        })
+    
+    # In yfinance 0.2.55, the data structure is different
+    # Now we access as data['Adj Close']['AAPL'] instead of data['AAPL']['Adj Close']
+    for ticker in ['AAPL', 'AMZN', 'QCOM', 'META', 'NVDA', 'JPM']:
+        fig_left.add_trace(
+            go.Scatter(x=data.index, y=data['Adj Close'][ticker], name=ticker)
+        )
+        
     fig_left.update_layout(paper_bgcolor="#14151b", plot_bgcolor="#14151b", font_color="white")
 
     plot_div_left = plot(fig_left, auto_open=False, output_type='div')
@@ -236,30 +225,34 @@ def index(request):
 
     # ================================================ To show recent stocks ==============================================
     
-    df1 = yf.download(tickers = 'AAPL', period='1d', interval='1d')
-    df2 = yf.download(tickers = 'AMZN', period='1d', interval='1d')
-    df3 = yf.download(tickers = 'GOOGL', period='1d', interval='1d')
-    df4 = yf.download(tickers = 'UBER', period='1d', interval='1d')
-    df5 = yf.download(tickers = 'TSLA', period='1d', interval='1d')
-    df6 = yf.download(tickers = 'TWTR', period='1d', interval='1d')
-
-    df1.insert(0, "Ticker", "AAPL")
-    df2.insert(0, "Ticker", "AMZN")
-    df3.insert(0, "Ticker", "GOOGL")
-    df4.insert(0, "Ticker", "UBER")
-    df5.insert(0, "Ticker", "TSLA")
-    df6.insert(0, "Ticker", "TWTR")
-
-    df = pd.concat([df1, df2, df3, df4, df5, df6], axis=0)
-    df.reset_index(level=0, inplace=True)
-    df.columns = ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Adj_Close', 'Volume']
-    convert_dict = {'Date': object}
-    df = df.astype(convert_dict)
-    df.drop('Date', axis=1, inplace=True)
-
-    json_records = df.reset_index().to_json(orient ='records')
-    recent_stocks = []
-    recent_stocks = json.loads(json_records)
+    # Individual stock downloads
+    stocks = ['AAPL', 'AMZN', 'GOOGL', 'UBER', 'TSLA']
+    # Note: TWTR is no longer publicly traded as Twitter was acquired, so removing it
+    
+    recent_stocks_list = []
+    
+    for ticker in stocks:
+        df = yf.download(tickers=ticker, period='1d', interval='1d',auto_adjust=False)
+        
+        if df is None or df.empty:
+            continue
+        
+        if not df.empty:
+            df.reset_index(inplace=True)
+            df.insert(0, "Ticker", ticker)
+            df.columns = ['Ticker', 'Date', 'Open', 'High', 'Low', 'Close', 'Adj_Close', 'Volume']
+            convert_dict = {'Date': object}
+            df = df.astype(convert_dict)
+            df.drop('Date', axis=1, inplace=True)
+            recent_stocks_list.append(df)
+    
+    # Only concat if we have data
+    if recent_stocks_list:
+        df = pd.concat(recent_stocks_list, axis=0)
+        json_records = df.reset_index().to_json(orient='records')
+        recent_stocks = json.loads(json_records)
+    else:
+        recent_stocks = []
 
     # ========================================== Page Render section =====================================================
 
@@ -300,7 +293,8 @@ def predict(request, ticker_value, number_of_days):
     try:
         # ticker_value = request.POST.get('ticker')
         ticker_value = ticker_value.upper()
-        df = yf.download(tickers = ticker_value, period='1d', interval='1m')
+        df = yf.download(tickers = ticker_value, period='1d', interval='1m',
+        auto_adjust=False)
         print("Downloaded ticker = {} successfully".format(ticker_value))
     except:
         return render(request, 'API_Down.html', {})
@@ -324,8 +318,16 @@ def predict(request, ticker_value, number_of_days):
     if number_of_days > 365:
         return render(request, 'Overflow_days.html', {})
     
+    if df is None:
+        return render(request, 'Invalid_Ticker.html', {})
 
     fig = go.Figure()
+    
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    
+    df = df.dropna(subset=['Open', 'High', 'Low', 'Close'])
+
     fig.add_trace(go.Candlestick(x=df.index,
                 open=df['Open'],
                 high=df['High'],
@@ -355,11 +357,15 @@ def predict(request, ticker_value, number_of_days):
 
 
     try:
-        df_ml = yf.download(tickers = ticker_value, period='3mo', interval='1h')
+        df_ml = yf.download(tickers = ticker_value, period='3mo', interval='1h',
+        auto_adjust=False)
     except:
         ticker_value = 'AAPL'
-        df_ml = yf.download(tickers = ticker_value, period='3mo', interval='1m')
+        df_ml = yf.download(tickers = ticker_value, period='3mo', interval='1m',
+        auto_adjust=False)
 
+    if df_ml is None:
+        return render(request, 'Invalid_Ticker.html', {})
     # Fetching ticker values from Yahoo Finance API 
     df_ml = df_ml[['Adj Close']]
     forecast_out = int(number_of_days)
